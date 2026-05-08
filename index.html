@@ -1,0 +1,1742 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Volleyball Serve Receive Tracker</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <style>
+    :root {
+      --bg: #eef2f6;
+      --card: #ffffff;
+      --line: #d7dde5;
+      --text: #111827;
+      --muted: #6b7280;
+      --blue: #2563eb;
+      --blue-dark: #1d4ed8;
+      --red: #dc2626;
+      --red-dark: #b91c1c;
+      --shadow: 0 8px 24px rgba(15, 23, 42, 0.08);
+      --radius: 18px;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      padding: 14px;
+      font-family: Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    .app {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .sticky-shell {
+      position: sticky;
+      top: 0;
+      z-index: 60;
+      padding-top: 8px;
+      background: linear-gradient(to bottom, rgba(238,242,246,0.98), rgba(238,242,246,0.92), rgba(238,242,246,0.82), rgba(238,242,246,0));
+      backdrop-filter: blur(8px);
+      margin-bottom: 8px;
+    }
+
+    h1 {
+      margin: 0 0 10px 0;
+      text-align: center;
+      font-size: 1.8rem;
+    }
+
+    .message {
+      min-height: 1.2em;
+      margin: 8px 0 10px;
+      font-size: 1rem;
+      font-weight: bold;
+      text-align: center;
+    }
+
+    .status-strip {
+      display: none;
+      margin: 0 0 10px 0;
+      padding: 12px 14px;
+      border-radius: 16px;
+      border: 2px solid var(--blue-dark);
+      background: #dbeafe;
+      color: #0f172a;
+      font-weight: bold;
+      text-align: center;
+      box-shadow: var(--shadow);
+    }
+
+    .status-strip.show {
+      display: block;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      box-shadow: var(--shadow);
+      padding: 14px;
+    }
+
+    .top-card {
+      box-shadow: 0 10px 26px rgba(15, 23, 42, 0.12);
+    }
+
+    .banner-grid,
+    .mini-grid,
+    .pass-grid,
+    .stats-grid {
+      display: grid;
+      gap: 12px;
+    }
+
+    .banner-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .mini-grid { grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+    .pass-grid { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+    .stats-grid { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+
+    .section-title {
+      font-size: 1rem;
+      font-weight: bold;
+      margin: 0 0 10px 0;
+    }
+
+    .muted {
+      color: var(--muted);
+      font-size: 0.88rem;
+    }
+
+    button {
+      cursor: pointer;
+      border: 1px solid #1f2937;
+      border-radius: 12px;
+      padding: 10px 14px;
+      font-size: 1rem;
+      font-weight: bold;
+      background: #f3f4f6;
+      color: #111827;
+    }
+
+    button:hover { filter: brightness(0.98); }
+
+    .utility-btn {
+      background: var(--blue);
+      color: #fff;
+      border-color: var(--blue-dark);
+    }
+
+    .danger-btn {
+      background: var(--red);
+      color: #fff;
+      border-color: var(--red-dark);
+    }
+
+    .ghost-btn {
+      background: #fff;
+    }
+
+    .tiny-btn {
+      min-width: 54px;
+      min-height: 54px;
+      padding: 8px 10px;
+      font-size: 1.05rem;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px 12px;
+      border-radius: 12px;
+      border: 1px solid #c7ced8;
+      font-size: 1rem;
+      background: #fff;
+    }
+
+    .setup-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.45);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 1000;
+    }
+
+    .setup-overlay.hidden,
+    .color-picker-overlay.hidden {
+      display: none;
+    }
+
+    .setup-modal,
+    .color-picker-inner {
+      width: min(720px, 100%);
+      background: #fff;
+      border-radius: 22px;
+      box-shadow: 0 18px 40px rgba(0,0,0,0.18);
+      padding: 18px;
+    }
+
+    .setup-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 12px;
+      margin: 14px 0;
+    }
+
+    .setup-team {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+      background: #f8fafc;
+    }
+
+    .setup-team h3 {
+      margin: 0 0 10px;
+    }
+
+    .setup-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 10px;
+      margin-top: 8px;
+      flex-wrap: wrap;
+    }
+
+    .swatch-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 8px;
+    }
+
+    .swatch {
+      width: 34px;
+      height: 34px;
+      border-radius: 999px;
+      border: 2px solid #374151;
+    }
+
+    .swatch.active {
+      outline: 3px solid #111827;
+      outline-offset: 2px;
+    }
+
+    .set-buttons {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .set-buttons button.active-set {
+      background: linear-gradient(135deg, #2563eb, #1d4ed8);
+      color: #fff;
+      border-color: var(--blue-dark);
+      transform: translateY(-1px);
+      box-shadow: 0 6px 16px rgba(37, 99, 235, 0.28);
+    }
+
+    .actions-wrap {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .counter-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .counter-team {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+      background: #f8fafc;
+    }
+
+    .counter-team h4 {
+      margin: 0 0 10px;
+      font-size: 1rem;
+    }
+
+    .count-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      justify-content: center;
+    }
+
+    .count-value {
+      min-width: 44px;
+      text-align: center;
+      font-size: 1.2rem;
+      font-weight: bold;
+    }
+
+    .timeout-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+    }
+
+    .timeout-group {
+      flex: 1 1 180px;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 12px;
+      background: #f8fafc;
+    }
+
+    .timeout-checks {
+      display: flex;
+      gap: 12px;
+      flex-wrap: wrap;
+      margin-top: 8px;
+    }
+
+    .timeout-checks label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: #fff;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 8px 10px;
+      font-size: 0.95rem;
+    }
+
+    .timeout-checks input[type="checkbox"] {
+      width: auto;
+      transform: scale(1.2);
+      margin: 0;
+    }
+
+    .pass-box {
+      border: 2px solid #cbd5e1;
+      border-radius: 20px;
+      padding: 12px;
+      min-height: 230px;
+      background: #fff;
+    }
+
+    .pass-box-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 10px;
+    }
+
+    .passer-grid {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      min-height: 92px;
+      align-items: flex-start;
+    }
+
+    .passer-btn,
+    .rating-btn {
+      min-width: 84px;
+      min-height: 68px;
+      font-size: 1.35rem;
+      border-width: 2px;
+      border-radius: 16px;
+    }
+
+    .plus-tile {
+      min-width: 84px;
+      min-height: 68px;
+      font-size: 1.4rem;
+      background: #fff;
+      border-style: dashed;
+      border-radius: 16px;
+    }
+
+    .rating-panel {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .rating-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .inline-add {
+      margin-top: 12px;
+      border-top: 1px solid var(--line);
+      padding-top: 12px;
+    }
+
+    .inline-add-row {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      align-items: center;
+    }
+
+    .inline-add-row input {
+      flex: 1 1 120px;
+      max-width: 120px;
+    }
+
+    .team-tools-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+      margin: 10px 0 12px;
+    }
+
+    .team-tool-card {
+      border: 1px solid #dbe2ea;
+      border-radius: 16px;
+      padding: 10px;
+      background: #f8fafc;
+    }
+
+    .team-tool-card .tool-label {
+      font-size: 0.85rem;
+      font-weight: 700;
+      margin-bottom: 8px;
+      color: #334155;
+    }
+
+    .timeout-checks {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .timeout-checks label {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 10px;
+      border-radius: 10px;
+      background: #fff;
+      border: 1px solid #cbd5e1;
+      font-weight: 600;
+    }
+
+    .timeout-checks input {
+      transform: scale(1.25);
+    }
+
+    .counter-team.compact {
+      background: transparent;
+      border: none;
+      padding: 0;
+    }
+
+    .counter-team.compact h4 {
+      display: none;
+    }
+
+    @media (max-width: 700px) {
+      .team-tools-grid {
+        grid-template-columns: 1fr;
+      }
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.92rem;
+    }
+
+    th, td {
+      border-bottom: 1px solid #e5e7eb;
+      padding: 6px 4px;
+      text-align: center;
+    }
+
+    th {
+      background: #f3f4f6;
+      position: sticky;
+      top: 0;
+      z-index: 2;
+    }
+
+    .team-box {
+      border-radius: 20px;
+      overflow: hidden;
+    }
+
+    .team-box-head {
+      padding: 12px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      font-weight: bold;
+    }
+
+    .team-box-body {
+      padding: 12px;
+      background: #fff;
+    }
+
+    .match-summary-box {
+      display: none;
+      margin-top: 14px;
+    }
+
+    .match-summary-box.show {
+      display: block;
+    }
+
+    .color-picker-overlay {
+      position: fixed;
+      inset: 0;
+      background: rgba(15, 23, 42, 0.4);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 16px;
+      z-index: 1001;
+    }
+
+    .color-swatches {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 10px;
+      margin: 14px 0;
+    }
+
+    .color-swatch-btn {
+      width: 42px;
+      height: 42px;
+      border-radius: 999px;
+      border: 2px solid #374151;
+    }
+
+    .sr-low  { background: #fee2e2; }
+    .sr-med  { background: #fef3c7; }
+    .sr-high { background: #dcfce7; }
+
+    .collapse-btn {
+      width: 100%;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      gap: 8px;
+      background: #fff;
+      padding: 12px 14px;
+      border-radius: 14px;
+    }
+
+    .collapse-panel.hidden {
+      display: none;
+    }
+
+    .stats-table-wrap {
+      max-height: 360px;
+      overflow: auto;
+      border-radius: 14px;
+      border: 1px solid #e5e7eb;
+    }
+
+    .flash {
+      animation: pulseFlash 0.7s ease-out;
+    }
+
+    @keyframes pulseFlash {
+      0% { transform: scale(1); box-shadow: 0 0 0 rgba(37,99,235,0); }
+      35% { transform: scale(1.02); box-shadow: 0 0 0 8px rgba(37,99,235,0.12); }
+      100% { transform: scale(1); box-shadow: 0 0 0 rgba(37,99,235,0); }
+    }
+
+
+    @media (max-width: 700px) {
+      body { padding: 10px; }
+      h1 { font-size: 1.45rem; }
+      .passer-btn, .rating-btn, .plus-tile { min-width: 74px; min-height: 60px; }
+      .sticky-shell { top: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="sticky-shell">
+      <h1>Volleyball Serve Receive Tracker</h1>
+      <div id="message" class="message"></div>
+      <div id="status-strip" class="status-strip"></div>
+
+    <div class="banner-grid">
+      <section class="card top-card">
+        <div class="section-title">Sets</div>
+        <div id="set-buttons" class="set-buttons"></div>
+        <div class="actions-wrap">
+          <button class="utility-btn" onclick="addSet()">+ Add Set</button>
+          <button class="utility-btn" onclick="promptEndSet()">End Set</button>
+        </div>
+      </section>
+
+      <section class="card top-card">
+        <div class="section-title">Actions</div>
+        <div class="actions-wrap">
+          <button class="danger-btn" onclick="undo()">Undo</button>
+          <button class="ghost-btn" onclick="openSetup()">Match Setup</button>
+          <button class="ghost-btn" onclick="resetCurrentSet()">Reset Set</button>
+          <button class="danger-btn" onclick="resetAll()">Reset Match</button>
+          <button id="match-stats-btn" class="utility-btn" onclick="toggleMatchStats()">Show Match Stats</button>
+        </div>
+        <div class="muted" id="autosave-indicator" style="margin-top:10px;">Autosave on</div>
+      </section>
+    </div>
+    </div>
+
+    <div style="margin-top:12px;">
+      <div id="pass-entry-panels" class="pass-grid"></div>
+    </div>
+
+    <div style="margin-top:12px;">
+      <button id="stats-collapse-btn" class="collapse-btn" onclick="toggleStatsCollapsed()">
+        <span><strong>Tracked Stats</strong></span>
+        <span id="stats-collapse-label">Hide</span>
+      </button>
+    </div>
+
+    <div id="stats-panel" class="collapse-panel">
+      <div id="teams-container" class="stats-grid" style="margin-top:12px;"></div>
+    </div>
+
+    <div id="match-summary" class="card match-summary-box"></div>
+  </div>
+
+  <div id="setup-overlay" class="setup-overlay">
+    <div class="setup-modal">
+      <div class="section-title" style="font-size:1.15rem;">Match Setup</div>
+      <div class="muted">Enter both team names and pick colors. This box will disappear after setup.</div>
+
+      <div class="setup-grid">
+        <div class="setup-team">
+          <h3>Team 1</h3>
+          <input id="team1-name" type="text" placeholder="Team 1" />
+          <div class="muted" style="margin-top:10px;">Color</div>
+          <div id="team1-swatches" class="swatch-row"></div>
+        </div>
+
+        <div class="setup-team">
+          <h3>Team 2</h3>
+          <input id="team2-name" type="text" placeholder="Team 2" />
+          <div class="muted" style="margin-top:10px;">Color</div>
+          <div id="team2-swatches" class="swatch-row"></div>
+        </div>
+      </div>
+
+      <div class="setup-actions">
+        <button class="ghost-btn" onclick="openColorPicker(1)">More Team 1 Colors</button>
+        <button class="ghost-btn" onclick="openColorPicker(2)">More Team 2 Colors</button>
+        <button class="utility-btn" onclick="applyMatchSetup()">Start Match</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="color-picker" class="color-picker-overlay hidden">
+    <div class="color-picker-inner">
+      <div class="section-title">Choose color for <span id="color-team-label"></span></div>
+      <div id="color-swatches" class="color-swatches"></div>
+      <div class="actions-wrap">
+        <button class="utility-btn" onclick="closeColorPicker()">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    var teamNames = { 1: "Team 1", 2: "Team 2" };
+    var rosters = { 1: [], 2: [] };
+    var teamColors = { 1: "#BBDEFB", 2: "#C8E6C9" };
+    var matchStatsVisible = false;
+    var colorPickerTeam = null;
+    var setupComplete = false;
+    var statsCollapsed = false;
+    var autosaveTimer = null;
+    var lastFlashTimer = null;
+    var STORAGE_KEY = "volleyballServeReceiveTrackerStateV2";
+
+    var COLOR_PALETTE = [
+      "#BBDEFB", "#1E88E5",
+      "#C8E6C9", "#43A047",
+      "#FFFFFF", "#E0E0E0",
+      "#424242", "#000000",
+      "#BDBDBD", "#616161",
+      "#FFCDD2", "#E53935",
+      "#FFF9C4", "#F9A825",
+      "#FFE0B2", "#F4511E",
+      "#E1BEE7", "#8E24AA",
+      "#D7CCC8", "#6D4C41"
+    ];
+
+    function createEmptyTeam(name) {
+      return {
+        name: name,
+        totalPasses: 0,
+        totalScore: 0,
+        missedServes: 0,
+        players: {}
+      };
+    }
+
+    function createEmptySet() {
+      return {
+        score: { 1: "", 2: "" },
+        timeouts: { 1: [false, false], 2: [false, false] },
+        teams: {
+          1: createEmptyTeam(teamNames[1]),
+          2: createEmptyTeam(teamNames[2])
+        }
+      };
+    }
+
+    var appState = {
+      currentSetIndex: 0,
+      sets: [createEmptySet()],
+      ratingPrompt: null,
+      history: []
+    };
+
+    function currentSet() {
+      return appState.sets[appState.currentSetIndex];
+    }
+
+    function sr(score, total) {
+      return total ? score / total : 0;
+    }
+
+    function srClass(psr) {
+      if (psr < 1.8) return "sr-low";
+      if (psr < 2.3) return "sr-med";
+      return "sr-high";
+    }
+
+    function setMessage(msg) {
+      document.getElementById("message").textContent = msg || "";
+    }
+
+    function showStatusStrip(text, teamId) {
+      var el = document.getElementById("status-strip");
+      if (!text) {
+        el.classList.remove("show");
+        el.textContent = "";
+        el.style.background = "#dbeafe";
+        el.style.borderColor = "#1d4ed8";
+        return;
+      }
+      el.textContent = text;
+      el.classList.add("show");
+      if (teamId && teamColors[teamId]) {
+        el.style.background = teamColors[teamId];
+        el.style.color = getContrastText(teamColors[teamId]);
+        el.style.borderColor = teamColors[teamId];
+      } else {
+        el.style.background = "#dbeafe";
+        el.style.color = "#0f172a";
+        el.style.borderColor = "#1d4ed8";
+      }
+    }
+
+    function flashSelectedArea() {
+      var el = document.getElementById("status-strip");
+      el.classList.remove("flash");
+      void el.offsetWidth;
+      el.classList.add("flash");
+      if (lastFlashTimer) clearTimeout(lastFlashTimer);
+      lastFlashTimer = setTimeout(function() {
+        el.classList.remove("flash");
+      }, 800);
+    }
+
+    function scheduleAutosave() {
+      if (autosaveTimer) clearTimeout(autosaveTimer);
+      autosaveTimer = setTimeout(saveState, 120);
+    }
+
+    function saveState() {
+      var payload = {
+        teamNames: teamNames,
+        rosters: rosters,
+        teamColors: teamColors,
+        matchStatsVisible: matchStatsVisible,
+        setupComplete: setupComplete,
+        statsCollapsed: statsCollapsed,
+        appState: appState
+      };
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
+      var ind = document.getElementById("autosave-indicator");
+      if (ind) ind.textContent = "Autosaved";
+      setTimeout(function() {
+        var ind2 = document.getElementById("autosave-indicator");
+        if (ind2) ind2.textContent = "Autosave on";
+      }, 900);
+    }
+
+    function loadState() {
+      try {
+        var raw = localStorage.getItem(STORAGE_KEY);
+        if (!raw) return false;
+        var data = JSON.parse(raw);
+        if (!data || !data.appState || !data.appState.sets) return false;
+        teamNames = data.teamNames || teamNames;
+        rosters = data.rosters || rosters;
+        teamColors = data.teamColors || teamColors;
+        matchStatsVisible = !!data.matchStatsVisible;
+        setupComplete = !!data.setupComplete;
+        statsCollapsed = !!data.statsCollapsed;
+        appState = data.appState;
+        if (typeof appState.currentSetIndex !== "number") appState.currentSetIndex = 0;
+        if (!appState.history) appState.history = [];
+        if (!appState.sets || !appState.sets.length) appState.sets = [createEmptySet()];
+        return true;
+      } catch (e) {
+        return false;
+      }
+    }
+
+    function isDarkColor(hex) {
+      var clean = hex.replace("#", "");
+      if (clean.length !== 6) return false;
+      var r = parseInt(clean.substring(0, 2), 16);
+      var g = parseInt(clean.substring(2, 4), 16);
+      var b = parseInt(clean.substring(4, 6), 16);
+      var brightness = (r * 299 + g * 587 + b * 114) / 1000;
+      return brightness < 140;
+    }
+
+    function getContrastText(hex) {
+      return isDarkColor(hex) ? "#ffffff" : "#111111";
+    }
+
+    function rosterContains(list, jersey) {
+      for (var i = 0; i < list.length; i++) {
+        if (list[i] === jersey) return true;
+      }
+      return false;
+    }
+
+    function syncTeamNamesAcrossSets() {
+      for (var i = 0; i < appState.sets.length; i++) {
+        appState.sets[i].teams[1].name = teamNames[1];
+        appState.sets[i].teams[2].name = teamNames[2];
+      }
+    }
+
+    function buildSetupSwatches() {
+      for (var teamId = 1; teamId <= 2; teamId++) {
+        var container = document.getElementById("team" + teamId + "-swatches");
+        container.innerHTML = "";
+        for (var i = 0; i < COLOR_PALETTE.length; i++) {
+          var color = COLOR_PALETTE[i];
+          var btn = document.createElement("button");
+          btn.type = "button";
+          btn.className = "swatch" + (teamColors[teamId] === color ? " active" : "");
+          btn.style.background = color;
+          btn.onclick = (function(t, c) {
+            return function() {
+              teamColors[t] = c;
+              buildSetupSwatches();
+              render();
+              scheduleAutosave();
+            };
+          })(teamId, color);
+          container.appendChild(btn);
+        }
+      }
+    }
+
+    function openSetup() {
+      document.getElementById("team1-name").value = teamNames[1] === "Team 1" ? "" : teamNames[1];
+      document.getElementById("team2-name").value = teamNames[2] === "Team 2" ? "" : teamNames[2];
+      buildSetupSwatches();
+      document.getElementById("setup-overlay").classList.remove("hidden");
+    }
+
+    function closeSetup() {
+      if (!setupComplete) return;
+      document.getElementById("setup-overlay").classList.add("hidden");
+    }
+
+    function applyMatchSetup() {
+      var t1 = document.getElementById("team1-name").value.trim();
+      var t2 = document.getElementById("team2-name").value.trim();
+
+      if (!t1 || !t2) {
+        setMessage("Enter both team names.");
+        return;
+      }
+
+      teamNames[1] = t1;
+      teamNames[2] = t2;
+      syncTeamNamesAcrossSets();
+      setupComplete = true;
+      closeSetup();
+      render();
+      scheduleAutosave();
+      setMessage("Match setup saved.");
+    }
+
+    function renderSetButtons() {
+      var container = document.getElementById("set-buttons");
+      container.innerHTML = "";
+
+      for (var i = 0; i < appState.sets.length; i++) {
+        (function(idx) {
+          var btn = document.createElement("button");
+          var setObj = appState.sets[idx];
+          var s1 = setObj.score[1] !== "" ? setObj.score[1] : "";
+          var s2 = setObj.score[2] !== "" ? setObj.score[2] : "";
+          var suffix = (s1 !== "" && s2 !== "") ? " (" + s1 + "-" + s2 + ")" : "";
+          btn.textContent = "Set " + (idx + 1) + suffix;
+          if (idx === appState.currentSetIndex) btn.classList.add("active-set");
+          btn.onclick = function() {
+            appState.currentSetIndex = idx;
+            appState.ratingPrompt = null;
+            render();
+            setMessage("Switched to Set " + (idx + 1));
+          };
+          container.appendChild(btn);
+        })(i);
+      }
+    }
+
+    function addSet() {
+      appState.sets.push(createEmptySet());
+      appState.currentSetIndex = appState.sets.length - 1;
+      appState.ratingPrompt = null;
+      render();
+      scheduleAutosave();
+      setMessage("Added Set " + (appState.currentSetIndex + 1));
+    }
+
+    function promptEndSet() {
+      var setNum = appState.currentSetIndex + 1;
+      var s1 = prompt("Enter " + teamNames[1] + " score for Set " + setNum + ":", currentSet().score[1]);
+      if (s1 === null) return;
+      var s2 = prompt("Enter " + teamNames[2] + " score for Set " + setNum + ":", currentSet().score[2]);
+      if (s2 === null) return;
+
+      if (s1.trim() === "" || s2.trim() === "") {
+        setMessage("Both scores are needed.");
+        return;
+      }
+
+      if (isNaN(parseInt(s1, 10)) || isNaN(parseInt(s2, 10))) {
+        setMessage("Scores must be numbers.");
+        return;
+      }
+
+      currentSet().score[1] = s1.trim();
+      currentSet().score[2] = s2.trim();
+      render();
+      scheduleAutosave();
+      setMessage("Saved Set " + setNum + " score.");
+    }
+
+    function resetCurrentSet() {
+      var confirmText = prompt('Type RESET to clear the current set.');
+      if (confirmText !== "RESET") {
+        setMessage("Reset canceled.");
+        return;
+      }
+
+      var idx = appState.currentSetIndex;
+      appState.sets[idx] = createEmptySet();
+
+      var newHist = [];
+      for (var i = 0; i < appState.history.length; i++) {
+        if (appState.history[i].setIndex !== idx) {
+          newHist.push(appState.history[i]);
+        }
+      }
+      appState.history = newHist;
+      appState.ratingPrompt = null;
+      render();
+      scheduleAutosave();
+      setMessage("Current set reset.");
+    }
+
+    function resetAll() {
+      var confirmText = prompt('Type RESET MATCH to clear the full match.');
+      if (confirmText !== "RESET MATCH") {
+        setMessage("Reset canceled.");
+        return;
+      }
+
+      appState.sets = [createEmptySet()];
+      appState.currentSetIndex = 0;
+      appState.ratingPrompt = null;
+      appState.history = [];
+      rosters[1] = [];
+      rosters[2] = [];
+      render();
+      scheduleAutosave();
+      setMessage("Match reset.");
+    }
+
+
+    function addPlayerToTeam(teamId) {
+      var input = document.getElementById("add-player-input-" + teamId);
+      if (!input) return;
+
+      var num = input.value.trim();
+      if (!num) {
+        setMessage("Enter a jersey number first.");
+        return;
+      }
+
+      var jersey = parseInt(num, 10);
+      if (isNaN(jersey)) {
+        setMessage("Invalid jersey number.");
+        return;
+      }
+
+      var list = rosters[teamId];
+      if (!rosterContains(list, jersey)) {
+        list.push(jersey);
+        list.sort(function(a, b) { return a - b; });
+        setMessage("Player #" + jersey + " added to " + teamNames[teamId]);
+        input.value = "";
+        scheduleAutosave();
+        render();
+        setTimeout(function() {
+          var fresh = document.getElementById("add-player-input-" + teamId);
+          if (fresh) fresh.focus();
+        }, 0);
+      } else {
+        setMessage("Player #" + jersey + " is already on " + teamNames[teamId]);
+      }
+    }
+
+    function openRatingPrompt(teamId, jersey) {
+      appState.ratingPrompt = { teamId: teamId, jersey: jersey };
+      render();
+      showStatusStrip("Tracking " + teamNames[teamId] + " #" + jersey, teamId);
+      flashSelectedArea();
+      setMessage("Rate " + teamNames[teamId] + " player #" + jersey);
+    }
+
+    function rate(teamId, jersey, rating) {
+      if (rating < 0 || rating > 3) return;
+      addPass(teamId, jersey, rating);
+      appState.ratingPrompt = null;
+      showStatusStrip("");
+      render();
+    }
+
+    function addPass(teamId, jersey, rating) {
+      var setIdx = appState.currentSetIndex;
+      var setObj = currentSet();
+      var team = setObj.teams[teamId];
+
+      if (!team.players[jersey]) {
+        team.players[jersey] = {
+          total: 0,
+          score: 0,
+          counts: [0, 0, 0, 0]
+        };
+      }
+
+      var p = team.players[jersey];
+      p.total += 1;
+      p.score += rating;
+      p.counts[rating] += 1;
+
+      team.totalPasses += 1;
+      team.totalScore += rating;
+
+      appState.history.push({
+        type: "pass",
+        setIndex: setIdx,
+        teamId: teamId,
+        jersey: jersey,
+        rating: rating
+      });
+
+      setMessage("+ " + team.name + ", #" + jersey + ", rating " + rating);
+    }
+
+    function changeMissedServe(teamId, delta) {
+      var setObj = currentSet();
+      var next = setObj.teams[teamId].missedServes + delta;
+      if (next < 0) next = 0;
+
+      var appliedDelta = next - setObj.teams[teamId].missedServes;
+      if (appliedDelta === 0) return;
+
+      setObj.teams[teamId].missedServes = next;
+      appState.history.push({
+        type: "missedServe",
+        setIndex: appState.currentSetIndex,
+        teamId: teamId,
+        delta: appliedDelta
+      });
+
+      render();
+      scheduleAutosave();
+      setMessage(teamNames[teamId] + " missed serves: " + next);
+    }
+
+    function undo() {
+      if (appState.history.length === 0) {
+        setMessage("Nothing to undo.");
+        return;
+      }
+
+      var last = appState.history.pop();
+
+      if (last.type === "missedServe") {
+        var setObjMs = appState.sets[last.setIndex];
+        setObjMs.teams[last.teamId].missedServes -= last.delta;
+        if (setObjMs.teams[last.teamId].missedServes < 0) setObjMs.teams[last.teamId].missedServes = 0;
+        render();
+        scheduleAutosave();
+        setMessage("Undid missed serve change.");
+        return;
+      }
+
+      var setObj = appState.sets[last.setIndex];
+      var team = setObj.teams[last.teamId];
+      var p = team.players[last.jersey];
+
+      if (!p) {
+        setMessage("Undo error.");
+        return;
+      }
+
+      p.total -= 1;
+      p.score -= last.rating;
+      p.counts[last.rating] -= 1;
+      team.totalPasses -= 1;
+      team.totalScore -= last.rating;
+
+      if (p.total <= 0) {
+        delete team.players[last.jersey];
+      }
+
+      appState.ratingPrompt = null;
+      render();
+      scheduleAutosave();
+      setMessage("Undid: " + team.name + ", #" + last.jersey + ", rating " + last.rating);
+    }
+
+    function onTimeoutChange() {
+      var setObj = currentSet();
+      setObj.timeouts[1][0] = document.getElementById("to-t1-1").checked;
+      setObj.timeouts[1][1] = document.getElementById("to-t1-2").checked;
+      setObj.timeouts[2][0] = document.getElementById("to-t2-1").checked;
+      setObj.timeouts[2][1] = document.getElementById("to-t2-2").checked;
+      renderMatchSummary();
+      scheduleAutosave();
+      setMessage("Timeouts updated for Set " + (appState.currentSetIndex + 1) + ".");
+    }
+
+    function initTimeoutHandlers() {
+      document.getElementById("to-t1-1").addEventListener("change", onTimeoutChange);
+      document.getElementById("to-t1-2").addEventListener("change", onTimeoutChange);
+      document.getElementById("to-t2-1").addEventListener("change", onTimeoutChange);
+      document.getElementById("to-t2-2").addEventListener("change", onTimeoutChange);
+    }
+
+    function renderMissedServeBox() {
+      var container = document.getElementById("missed-serve-box");
+      container.innerHTML = "";
+
+      for (var teamId = 1; teamId <= 2; teamId++) {
+        var wrap = document.createElement("div");
+        wrap.className = "counter-team";
+
+        var title = document.createElement("h4");
+        title.textContent = teamNames[teamId];
+        wrap.appendChild(title);
+
+        var row = document.createElement("div");
+        row.className = "count-row";
+
+        var minus = document.createElement("button");
+        minus.className = "tiny-btn";
+        minus.textContent = "-1";
+        minus.onclick = (function(t) {
+          return function() { changeMissedServe(t, -1); };
+        })(teamId);
+
+        var value = document.createElement("div");
+        value.className = "count-value";
+        value.textContent = currentSet().teams[teamId].missedServes;
+
+        var plus = document.createElement("button");
+        plus.className = "tiny-btn";
+        plus.textContent = "+1";
+        plus.onclick = (function(t) {
+          return function() { changeMissedServe(t, 1); };
+        })(teamId);
+
+        row.appendChild(minus);
+        row.appendChild(value);
+        row.appendChild(plus);
+        wrap.appendChild(row);
+        container.appendChild(wrap);
+      }
+    }
+
+    function renderTimeoutNames() {
+      document.getElementById("to-t1-name").textContent = teamNames[1];
+      document.getElementById("to-t2-name").textContent = teamNames[2];
+
+      var setObj = currentSet();
+      document.getElementById("to-t1-1").checked = !!setObj.timeouts[1][0];
+      document.getElementById("to-t1-2").checked = !!setObj.timeouts[1][1];
+      document.getElementById("to-t2-1").checked = !!setObj.timeouts[2][0];
+      document.getElementById("to-t2-2").checked = !!setObj.timeouts[2][1];
+    }
+
+
+    function renderPassEntryPanels() {
+      var container = document.getElementById("pass-entry-panels");
+      container.innerHTML = "";
+      var setObj = currentSet();
+
+      for (let teamId = 1; teamId <= 2; teamId++) {
+        var box = document.createElement("div");
+        box.className = "pass-box";
+        box.style.borderColor = teamColors[teamId];
+
+        var header = document.createElement("div");
+        header.className = "pass-box-header";
+
+        var title = document.createElement("div");
+        title.innerHTML = "<strong>" + teamNames[teamId] + "</strong><div class='muted'>Passers, missed serves, and timeouts together on one side.</div>";
+
+        var colorBtn = document.createElement("button");
+        colorBtn.className = "ghost-btn tiny-btn";
+        colorBtn.textContent = "Color";
+        colorBtn.onclick = function(t) {
+          return function() { openColorPicker(t); };
+        }(teamId);
+
+        header.appendChild(title);
+        header.appendChild(colorBtn);
+        box.appendChild(header);
+
+        var toolsGrid = document.createElement("div");
+        toolsGrid.className = "team-tools-grid";
+
+        var missedCard = document.createElement("div");
+        missedCard.className = "team-tool-card";
+        var missedLabel = document.createElement("div");
+        missedLabel.className = "tool-label";
+        missedLabel.textContent = "Missed Serves";
+        missedCard.appendChild(missedLabel);
+
+        var countWrap = document.createElement("div");
+        countWrap.className = "counter-team compact";
+        var countRow = document.createElement("div");
+        countRow.className = "count-row";
+
+        var minus = document.createElement("button");
+        minus.className = "tiny-btn";
+        minus.textContent = "-1";
+        minus.onclick = (function(t) {
+          return function() { changeMissedServe(t, -1); };
+        })(teamId);
+
+        var value = document.createElement("div");
+        value.className = "count-value";
+        value.textContent = setObj.teams[teamId].missedServes;
+
+        var plus = document.createElement("button");
+        plus.className = "tiny-btn";
+        plus.textContent = "+1";
+        plus.onclick = (function(t) {
+          return function() { changeMissedServe(t, 1); };
+        })(teamId);
+
+        countRow.appendChild(minus);
+        countRow.appendChild(value);
+        countRow.appendChild(plus);
+        countWrap.appendChild(countRow);
+        missedCard.appendChild(countWrap);
+        toolsGrid.appendChild(missedCard);
+
+        var timeoutCard = document.createElement("div");
+        timeoutCard.className = "team-tool-card";
+        var timeoutLabel = document.createElement("div");
+        timeoutLabel.className = "tool-label";
+        timeoutLabel.textContent = "Timeouts";
+        timeoutCard.appendChild(timeoutLabel);
+
+        var timeoutChecks = document.createElement("div");
+        timeoutChecks.className = "timeout-checks";
+        for (let idx = 0; idx < 2; idx++) {
+          var label = document.createElement("label");
+          var checkbox = document.createElement("input");
+          checkbox.type = "checkbox";
+          checkbox.checked = !!setObj.timeouts[teamId][idx];
+          checkbox.onchange = function(t, i) {
+            return function(e) {
+              var setNow = currentSet();
+              setNow.timeouts[t][i] = e.target.checked;
+              renderMatchSummary();
+              scheduleAutosave();
+              setMessage(teamNames[t] + " timeout " + (i + 1) + (e.target.checked ? " used." : " cleared."));
+            };
+          }(teamId, idx);
+          label.appendChild(checkbox);
+          label.appendChild(document.createTextNode("TO" + (idx + 1)));
+          timeoutChecks.appendChild(label);
+        }
+        timeoutCard.appendChild(timeoutChecks);
+        toolsGrid.appendChild(timeoutCard);
+
+        box.appendChild(toolsGrid);
+
+        var content = document.createElement("div");
+        content.className = "passer-grid";
+
+        var list = rosters[teamId].slice(0);
+        list.sort(function(a, b) { return a - b; });
+
+        var ratingOpen = appState.ratingPrompt && appState.ratingPrompt.teamId === teamId;
+
+        if (ratingOpen) {
+          var ratingPanel = document.createElement("div");
+          ratingPanel.className = "rating-panel";
+
+          var labelTop = document.createElement("div");
+          labelTop.innerHTML = "<strong>Player #" + appState.ratingPrompt.jersey + "</strong>";
+          ratingPanel.appendChild(labelTop);
+
+          var label = document.createElement("div");
+          label.className = "muted";
+          label.textContent = "Select Pass Quality:";
+          ratingPanel.appendChild(label);
+
+          var btnRow = document.createElement("div");
+          btnRow.className = "rating-row";
+
+          for (let rating = 0; rating <= 3; rating++) {
+            var rateBtn = document.createElement("button");
+            rateBtn.className = "rating-btn";
+            rateBtn.textContent = rating;
+            rateBtn.onclick = function() {
+              rate(teamId, appState.ratingPrompt.jersey, rating);
+            };
+            btnRow.appendChild(rateBtn);
+          }
+
+          var cancelBtn = document.createElement("button");
+          cancelBtn.className = "ghost-btn";
+          cancelBtn.textContent = "Cancel";
+          cancelBtn.onclick = function() {
+            appState.ratingPrompt = null;
+            showStatusStrip("");
+            render();
+          };
+          btnRow.appendChild(cancelBtn);
+          ratingPanel.appendChild(btnRow);
+          content.appendChild(ratingPanel);
+        } else {
+          if (list.length === 0) {
+            var empty = document.createElement("div");
+            empty.className = "muted";
+            empty.style.width = "100%";
+            empty.textContent = "No passers yet.";
+            content.appendChild(empty);
+          } else {
+            for (let i = 0; i < list.length; i++) {
+              let jersey = list[i];
+              var btn = document.createElement("button");
+              btn.className = "passer-btn";
+              btn.textContent = jersey;
+              btn.style.backgroundColor = teamColors[teamId];
+              btn.style.borderColor = teamColors[teamId];
+              btn.style.color = getContrastText(teamColors[teamId]);
+              btn.onclick = function() { openRatingPrompt(teamId, jersey); };
+              content.appendChild(btn);
+            }
+          }
+        }
+
+        box.appendChild(content);
+
+        if (!ratingOpen) {
+          var addWrap = document.createElement("div");
+          addWrap.className = "inline-add";
+          addWrap.style.width = "100%";
+
+          var row = document.createElement("div");
+          row.className = "inline-add-row";
+
+          var input = document.createElement("input");
+          input.id = "add-player-input-" + teamId;
+          input.type = "tel";
+          input.inputMode = "numeric";
+          input.pattern = "[0-9]*";
+          input.placeholder = "Add jersey #";
+          input.onkeydown = function(e) {
+            if (e.key === "Enter") addPlayerToTeam(teamId);
+          };
+
+          var hint = document.createElement("div");
+          hint.className = "muted";
+          hint.textContent = "Press Enter after each number.";
+
+          addWrap.appendChild(row);
+          row.appendChild(input);
+          addWrap.appendChild(hint);
+          box.appendChild(addWrap);
+        }
+
+        container.appendChild(box);
+      }
+    }
+
+    function renderTeams() {
+      var container = document.getElementById("teams-container");
+      container.innerHTML = "";
+
+      var setObj = currentSet();
+
+      for (var id = 1; id <= 2; id++) {
+        var team = setObj.teams[id];
+
+        var box = document.createElement("div");
+        box.className = "card team-box";
+
+        var head = document.createElement("div");
+        head.className = "team-box-head";
+        head.style.background = teamColors[id];
+        head.style.color = getContrastText(teamColors[id]);
+        head.innerHTML = "<div>" + team.name + "</div><div>SR: " + sr(team.totalScore, team.totalPasses).toFixed(2) + "</div>";
+        box.appendChild(head);
+
+        var body = document.createElement("div");
+        body.className = "team-box-body";
+
+        var summary = document.createElement("div");
+        summary.style.marginBottom = "10px";
+        summary.innerHTML =
+          "Passes: <strong>" + team.totalPasses + "</strong> &nbsp;|&nbsp; " +
+          "Total: <strong>" + team.totalScore + "</strong> &nbsp;|&nbsp; " +
+          "Missed Serves: <strong>" + team.missedServes + "</strong>";
+        body.appendChild(summary);
+
+        var table = document.createElement("table");
+        var thead = document.createElement("thead");
+        thead.innerHTML = "<tr><th>#</th><th>Passes</th><th>SR</th><th>0</th><th>1</th><th>2</th><th>3</th></tr>";
+        table.appendChild(thead);
+
+        var tbody = document.createElement("tbody");
+        var jerseys = [];
+
+        for (var key in team.players) {
+          if (team.players.hasOwnProperty(key)) jerseys.push(parseInt(key, 10));
+        }
+        jerseys.sort(function(a, b) { return a - b; });
+
+        if (jerseys.length === 0) {
+          var trEmpty = document.createElement("tr");
+          var tdEmpty = document.createElement("td");
+          tdEmpty.colSpan = 7;
+          tdEmpty.textContent = "(no passes yet)";
+          trEmpty.appendChild(tdEmpty);
+          tbody.appendChild(trEmpty);
+        } else {
+          for (var j = 0; j < jerseys.length; j++) {
+            var jersey = jerseys[j];
+            var p = team.players[jersey];
+            var psr = sr(p.score, p.total);
+
+            var tr = document.createElement("tr");
+            tr.className = srClass(psr);
+            tr.innerHTML =
+              "<td>" + jersey + "</td>" +
+              "<td>" + p.total + "</td>" +
+              "<td>" + psr.toFixed(2) + "</td>" +
+              "<td>" + p.counts[0] + "</td>" +
+              "<td>" + p.counts[1] + "</td>" +
+              "<td>" + p.counts[2] + "</td>" +
+              "<td>" + p.counts[3] + "</td>";
+            tbody.appendChild(tr);
+          }
+        }
+
+        table.appendChild(tbody);
+        var tableWrap = document.createElement("div");
+        tableWrap.className = "stats-table-wrap";
+        tableWrap.appendChild(table);
+        body.appendChild(tableWrap);
+        box.appendChild(body);
+        container.appendChild(box);
+      }
+    }
+
+    function renderMatchSummary() {
+      var box = document.getElementById("match-summary");
+
+      if (!matchStatsVisible) {
+        box.classList.remove("show");
+        box.innerHTML = "";
+        return;
+      }
+
+      box.classList.add("show");
+
+      var totals = {
+        1: { passes: 0, score: 0, missedServes: 0 },
+        2: { passes: 0, score: 0, missedServes: 0 }
+      };
+      var playersAgg = { 1: {}, 2: {} };
+
+      for (var s = 0; s < appState.sets.length; s++) {
+        var setObj = appState.sets[s];
+
+        for (var t = 1; t <= 2; t++) {
+          var team = setObj.teams[t];
+          totals[t].passes += team.totalPasses;
+          totals[t].score += team.totalScore;
+          totals[t].missedServes += team.missedServes;
+
+          for (var key in team.players) {
+            if (team.players.hasOwnProperty(key)) {
+              if (!playersAgg[t][key]) {
+                playersAgg[t][key] = { passes: 0, score: 0, counts: [0,0,0,0] };
+              }
+              playersAgg[t][key].passes += team.players[key].total;
+              playersAgg[t][key].score += team.players[key].score;
+              playersAgg[t][key].counts[0] += team.players[key].counts[0];
+              playersAgg[t][key].counts[1] += team.players[key].counts[1];
+              playersAgg[t][key].counts[2] += team.players[key].counts[2];
+              playersAgg[t][key].counts[3] += team.players[key].counts[3];
+            }
+          }
+        }
+      }
+
+      var html = "<div class='section-title'>Match Totals (All Sets)</div>";
+      for (var teamId = 1; teamId <= 2; teamId++) {
+        html += "<div style='margin-bottom:8px;'><strong>" + teamNames[teamId] + "</strong>: " +
+          "Passes " + totals[teamId].passes +
+          " | Total " + totals[teamId].score +
+          " | SR " + sr(totals[teamId].score, totals[teamId].passes).toFixed(2) +
+          " | Missed Serves " + totals[teamId].missedServes +
+          "</div>";
+
+        html += "<div class='stats-table-wrap'><table><thead><tr><th>#</th><th>Passes</th><th>SR</th><th>0</th><th>1</th><th>2</th><th>3</th></tr></thead><tbody>";
+
+        var jerseys = [];
+        for (var jersey in playersAgg[teamId]) {
+          if (playersAgg[teamId].hasOwnProperty(jersey)) jerseys.push(parseInt(jersey, 10));
+        }
+        jerseys.sort(function(a, b) { return a - b; });
+
+        if (jerseys.length === 0) {
+          html += "<tr><td colspan='7'>(no passes yet)</td></tr>";
+        } else {
+          for (var j2 = 0; j2 < jerseys.length; j2++) {
+            var jersey2 = jerseys[j2];
+            var p2 = playersAgg[teamId][jersey2];
+            html += "<tr>" +
+              "<td>" + jersey2 + "</td>" +
+              "<td>" + p2.passes + "</td>" +
+              "<td>" + sr(p2.score, p2.passes).toFixed(2) + "</td>" +
+              "<td>" + p2.counts[0] + "</td>" +
+              "<td>" + p2.counts[1] + "</td>" +
+              "<td>" + p2.counts[2] + "</td>" +
+              "<td>" + p2.counts[3] + "</td>" +
+              "</tr>";
+          }
+        }
+
+        html += "</tbody></table></div>";
+      }
+
+      box.innerHTML = html;
+    }
+
+    function toggleMatchStats() {
+      matchStatsVisible = !matchStatsVisible;
+      document.getElementById("match-stats-btn").textContent = matchStatsVisible ? "Hide Match Stats" : "Show Match Stats";
+      renderMatchSummary();
+      scheduleAutosave();
+    }
+
+
+    function toggleStatsCollapsed() {
+      statsCollapsed = !statsCollapsed;
+      renderStatsPanel();
+      scheduleAutosave();
+    }
+
+    function renderStatsPanel() {
+      var panel = document.getElementById("stats-panel");
+      var label = document.getElementById("stats-collapse-label");
+      if (statsCollapsed) {
+        panel.classList.add("hidden");
+        label.textContent = "Show";
+      } else {
+        panel.classList.remove("hidden");
+        label.textContent = "Hide";
+      }
+    }
+
+    function buildColorPicker() {
+      var container = document.getElementById("color-swatches");
+      container.innerHTML = "";
+
+      for (var i = 0; i < COLOR_PALETTE.length; i++) {
+        var btn = document.createElement("button");
+        btn.className = "color-swatch-btn";
+        btn.style.background = COLOR_PALETTE[i];
+        btn.setAttribute("data-color", COLOR_PALETTE[i]);
+        btn.onclick = function() {
+          if (colorPickerTeam === null) return;
+          teamColors[colorPickerTeam] = this.getAttribute("data-color");
+          buildSetupSwatches();
+          render();
+          closeColorPicker();
+          scheduleAutosave();
+        };
+        container.appendChild(btn);
+      }
+    }
+
+    function openColorPicker(teamId) {
+      colorPickerTeam = teamId;
+      document.getElementById("color-team-label").textContent = teamNames[teamId];
+      document.getElementById("color-picker").classList.remove("hidden");
+    }
+
+    function closeColorPicker() {
+      colorPickerTeam = null;
+      document.getElementById("color-picker").classList.add("hidden");
+    }
+
+    function downloadCSV() {
+      var rows = [];
+      rows.push([
+        "Set",
+        "Team",
+        "SetScoreFor",
+        "SetScoreAgainst",
+        "MissedServes",
+        "Timeout1Used",
+        "Timeout2Used",
+        "Jersey",
+        "Passes",
+        "Score",
+        "SR",
+        "Count0",
+        "Count1",
+        "Count2",
+        "Count3"
+      ]);
+
+      for (var s = 0; s < appState.sets.length; s++) {
+        var setObj = appState.sets[s];
+
+        for (var t = 1; t <= 2; t++) {
+          var team = setObj.teams[t];
+          var opp = t === 1 ? 2 : 1;
+
+          var jerseys = [];
+          for (var key in team.players) {
+            if (team.players.hasOwnProperty(key)) jerseys.push(parseInt(key, 10));
+          }
+          jerseys.sort(function(a, b) { return a - b; });
+
+          if (jerseys.length === 0) {
+            rows.push([
+              s + 1,
+              team.name,
+              setObj.score[t],
+              setObj.score[opp],
+              team.missedServes,
+              setObj.timeouts[t][0],
+              setObj.timeouts[t][1],
+              "",
+              0,
+              0,
+              "0.00",
+              0,0,0,0
+            ]);
+          } else {
+            for (var j = 0; j < jerseys.length; j++) {
+              var jersey = jerseys[j];
+              var p = team.players[jersey];
+              rows.push([
+                s + 1,
+                team.name,
+                setObj.score[t],
+                setObj.score[opp],
+                team.missedServes,
+                setObj.timeouts[t][0],
+                setObj.timeouts[t][1],
+                jersey,
+                p.total,
+                p.score,
+                sr(p.score, p.total).toFixed(2),
+                p.counts[0],
+                p.counts[1],
+                p.counts[2],
+                p.counts[3]
+              ]);
+            }
+          }
+        }
+      }
+
+      var csv = rows.map(function(row) {
+        return row.map(function(cell) {
+          return '"' + String(cell).replace(/"/g, '""') + '"';
+        }).join(",");
+      }).join("\n");
+
+      var blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+      var url = URL.createObjectURL(blob);
+      var link = document.createElement("a");
+      link.href = url;
+      link.download = "volleyball_serve_receive_tracker.csv";
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+      setMessage("CSV downloaded.");
+    }
+
+    function render() {
+      renderSetButtons();
+      renderPassEntryPanels();
+      renderTeams();
+      renderMatchSummary();
+      renderStatsPanel();
+      buildSetupSwatches();
+
+      if (appState.ratingPrompt) {
+        showStatusStrip("Tracking " + teamNames[appState.ratingPrompt.teamId] + " #" + appState.ratingPrompt.jersey, appState.ratingPrompt.teamId);
+      } else {
+        showStatusStrip("");
+      }
+
+      document.getElementById("match-stats-btn").textContent = matchStatsVisible ? "Hide Match Stats" : "Show Match Stats";
+    }
+
+    loadState();
+    buildColorPicker();
+    render();
+    if (setupComplete) {
+      closeSetup();
+    } else {
+      openSetup();
+    }
+  </script>
+</body>
+</html>
